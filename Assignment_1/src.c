@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
+#include <float.h>
 #include "mpi.h"
+
+double maxm(double a, double b){
+  if(a>b){
+    return a;
+  }
+  else{
+    return b;
+  }
+}
 
 int main(int argc, char *argv[]){
 
@@ -16,19 +27,34 @@ int main(int argc, char *argv[]){
   int time_step = atoi(argv[2]);
   
   // for running the given process either 1 or 2 or 3
-  int option = atoi(argv[3]);
+  // int option = atoi(argv[3]);
 
   // for printing the given rank
-  int req_rank = atoi(argv[4]);
+  // int req_rank = atoi(argv[4]);
 
   // variable to capture the position of process in the cartesian system
   int indicator = 0;
 
-  double data[N][N];
+  // double data[N][N];
+  double **data = (double **)calloc(N , sizeof(double *));
+  for(int i=0;i<N;i++){
+    data[i] = (double *)calloc(N , sizeof(double));
+  }
+
+  // double data_temp[N+2][N+2];
+  double **data_temp = (double **)calloc((N+2) , sizeof(double *));
+  for(int i=0;i<(N+2);i++){
+    data_temp[i] = (double *)calloc((N+2) , sizeof(double));
+  }
+
+  data_temp[0][0] = -DBL_MAX;
+  data_temp[N+1][N+1] = -DBL_MAX;
+  data_temp[0][N+1] = -DBL_MAX;
+  data_temp[N+1][0] = -DBL_MAX;
 
   // get the rank and size of the current process
   int myrank, size_sq;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myrank) ;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &size_sq);
 
   int size = (int)(sqrt(size_sq));
@@ -37,6 +63,28 @@ int main(int argc, char *argv[]){
   int row_p = myrank/size;
   // column for the current pocess
   int col_p = myrank%size;
+
+  // double time1[size_sq], time2[size_sq], time3[size_sq];
+  // for(int i=0;i<size_sq;i++){
+  //   time1[i] = 0;
+  //   time2[i] = 0;
+  //   time3[i] = 0;
+  // }
+
+  double time1, time2, time3;
+  time1 = 0;
+  time2 = 0;
+  time3 = 0;
+
+  double time1max, time2max, time3max;
+  time1max = 0;
+  time2max = 0;
+  time3max = 0;
+
+  double time1sum, time2sum, time3sum;
+  time1sum = 0;
+  time2sum = 0;
+  time3sum = 0;
 
   // upper left corner
   if((row_p == 0) && (col_p == 0)){
@@ -75,7 +123,7 @@ int main(int argc, char *argv[]){
     indicator = 9;
   }
 
-  printf("Myrank:%d Row:%d Column:%d Indicator:%d\n",myrank,row_p,col_p,indicator);
+  // printf("Myrank:%d Row:%d Column:%d Indicator:%d\n",myrank,row_p,col_p,indicator);
 
   // ---------------------------------------------------------------
   
@@ -83,7 +131,9 @@ int main(int argc, char *argv[]){
   // we would encoe the postion and iteration togeher in the TAG
   // in the format (length of points in row)*iteration + position
 
-  if(option == 1){
+  if(1){
+
+    time1 = 0;
 
     for(int i=0;i<N;i++){
       for(int j=0;j<N;j++){
@@ -91,7 +141,11 @@ int main(int argc, char *argv[]){
       }
     }
 
+    double stime, etime;
+
     for(int i=0;i<time_step;i++){
+
+      stime = MPI_Wtime();
 
       // for process 1
       // int MPI_Send (const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) 
@@ -176,14 +230,11 @@ int main(int argc, char *argv[]){
 
         }
 
+        etime = MPI_Wtime();
+
+        time1 = time1 + etime - stime;
+
         // compute
-
-
-        double data_temp[N+2][N+2];
-        data_temp[0][0] = 0;
-        data_temp[N+1][N+1] = 0;
-        data_temp[0][N+1] = 0;
-        data_temp[N+1][0] = 0;
 
         for(int j=1;j<N+1;j++){
           for(int k=1;k<N+1;k++){
@@ -198,7 +249,7 @@ int main(int argc, char *argv[]){
             data_temp[N+1][j] = recv_buffer_lr[j-1];
           }
           else{
-            data_temp[N+1][j] = 0;
+            data_temp[N+1][j] = -DBL_MAX;
           }
 
           // lc
@@ -206,7 +257,7 @@ int main(int argc, char *argv[]){
             data_temp[j][N+1] = recv_buffer_lc[j-1];
           }
           else{
-            data_temp[j][N+1] = 0;
+            data_temp[j][N+1] = -DBL_MAX;
           }
 
           // fc
@@ -214,7 +265,7 @@ int main(int argc, char *argv[]){
             data_temp[j][0] = recv_buffer_fc[j-1];
           }
           else{
-            data_temp[j][0] = 0;
+            data_temp[j][0] = -DBL_MAX;
           }
 
           // fr
@@ -222,7 +273,7 @@ int main(int argc, char *argv[]){
             data_temp[0][j] = recv_buffer_fr[j-1];
           }
           else{
-            data_temp[0][j] = 0;
+            data_temp[0][j] = -DBL_MAX;
           }
 
         }
@@ -232,22 +283,22 @@ int main(int argc, char *argv[]){
             int count = 0;
             double sum = 0;
 
-            if(data_temp[j+1][k] != 0){
+            if(data_temp[j+1][k] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j+1][k];
             }
 
-            if(data_temp[j-1][k] != 0){
+            if(data_temp[j-1][k] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j-1][k];
             }
 
-            if(data_temp[j][k-1] != 0){
+            if(data_temp[j][k-1] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j][k-1];
             }
 
-            if(data_temp[j][k+1] != 0){
+            if(data_temp[j][k+1] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j][k+1];
             }
@@ -258,6 +309,9 @@ int main(int argc, char *argv[]){
         }
 
     }
+
+    // printf("time1 : %lf\n",time1);
+
   }
 
   // ---------------------------------------------------------------------
@@ -267,13 +321,17 @@ int main(int argc, char *argv[]){
 
   // Part II
 
-  if(option == 2){
+  if(1){
+
+    time2 = 0;
 
     for(int i=0;i<N;i++){
       for(int j=0;j<N;j++){
         data[i][j] = 1+i+j;
       }
     }
+
+    double stime, etime;
 
     for(int l=0;l<time_step;l++){
       // int MPI_Pack (const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf, int outsize, int *position, MPI_Comm comm)
@@ -290,6 +348,8 @@ int main(int argc, char *argv[]){
       double recv_buffer_fc[N];
 
       int position = 0;
+
+      stime = MPI_Wtime();
 
       if(1){
 
@@ -375,12 +435,9 @@ int main(int argc, char *argv[]){
             ind_fc = 1;
           }
 
+        etime = MPI_Wtime();
 
-        double data_temp[N+2][N+2];
-        data_temp[0][0] = 0;
-        data_temp[N+1][N+1] = 0;
-        data_temp[0][N+1] = 0;
-        data_temp[N+1][0] = 0;
+        time2 = time2 + etime - stime;
 
         for(int j=1;j<N+1;j++){
           for(int k=1;k<N+1;k++){
@@ -403,7 +460,7 @@ int main(int argc, char *argv[]){
         }
         else{
           for(int i=0;i<N;i++){
-            buffer_lr[i] = 0;
+            buffer_lr[i] = -DBL_MAX;
           }
         }
 
@@ -417,7 +474,7 @@ int main(int argc, char *argv[]){
         }
         else{
           for(int i=0;i<N;i++){
-            buffer_fr[i] = 0;
+            buffer_fr[i] = -DBL_MAX;
           }
         }
 
@@ -431,7 +488,7 @@ int main(int argc, char *argv[]){
         }
         else{
           for(int i=0;i<N;i++){
-            buffer_lc[i] = 0;
+            buffer_lc[i] = -DBL_MAX;
           }
         }
 
@@ -445,7 +502,7 @@ int main(int argc, char *argv[]){
         }
         else{
           for(int i=0;i<N;i++){
-            buffer_fc[i] = 0;
+            buffer_fc[i] = -DBL_MAX;
           }
         }
 
@@ -456,7 +513,7 @@ int main(int argc, char *argv[]){
             data_temp[N+1][j] = buffer_lr[j-1];
           }
           else{
-            data_temp[N+1][j] = 0;
+            data_temp[N+1][j] = -DBL_MAX;
           }
 
           // lc
@@ -464,7 +521,7 @@ int main(int argc, char *argv[]){
             data_temp[j][N+1] = buffer_lc[j-1];
           }
           else{
-            data_temp[j][N+1] = 0;
+            data_temp[j][N+1] = -DBL_MAX;
           }
 
           // fc
@@ -472,7 +529,7 @@ int main(int argc, char *argv[]){
             data_temp[j][0] = buffer_fc[j-1];
           }
           else{
-            data_temp[j][0] = 0;
+            data_temp[j][0] = -DBL_MAX;
           }
 
           // fr
@@ -480,7 +537,7 @@ int main(int argc, char *argv[]){
             data_temp[0][j] = buffer_fr[j-1];
           }
           else{
-            data_temp[0][j] = 0;
+            data_temp[0][j] = -DBL_MAX;
           }
 
         }
@@ -491,22 +548,22 @@ int main(int argc, char *argv[]){
             int count = 0;
             double sum = 0;
 
-            if(data_temp[j+1][k] != 0){
+            if(data_temp[j+1][k] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j+1][k];
             }
 
-            if(data_temp[j-1][k] != 0){
+            if(data_temp[j-1][k] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j-1][k];
             }
 
-            if(data_temp[j][k-1] != 0){
+            if(data_temp[j][k-1] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j][k-1];
             }
 
-            if(data_temp[j][k+1] != 0){
+            if(data_temp[j][k+1] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j][k+1];
             }
@@ -517,7 +574,9 @@ int main(int argc, char *argv[]){
         }
 
 
-    } 
+    }
+
+    // printf("time2 : %lf\n",time2);
   }
 
 
@@ -527,15 +586,11 @@ int main(int argc, char *argv[]){
   // ---------------------------------------------------------------
   
   // Part III
-  // for the third part when we have to from the new datatypes
+  // for the third part when we have to from the new datatype
 
-  // we would be defining 4 new datatypes
-  // last_row => last row of any matrix
-  // first_row => first row of any matrix
-  // last_column => last column of any matrix
-  // first_column => first column of any matrix
+  if(1){
 
-  if(option == 3){
+    time3 = 0;
 
     for(int i=0;i<N;i++){
       for(int j=0;j<N;j++){
@@ -543,74 +598,55 @@ int main(int argc, char *argv[]){
       }
     }
 
-    MPI_Datatype last_row;
-    MPI_Datatype first_row;
-    MPI_Datatype last_column;
-    MPI_Datatype first_column;
+    double lrow[N];
+    double lcol[N];
+    double fcol[N];
+    double frow[N];
 
-    int column_lr = N*(N-1);
-    int column_fr = 0;
-    int column_lc = N-1;
-    int column_fc = 0;
+    MPI_Datatype row;
 
-    int count_lr = 1;
-    int count_fr = 1;
-    int count_lc = N;
-    int count_fc = N;
+    MPI_Type_vector (1, N, 0, MPI_DOUBLE, &row);
+    MPI_Type_commit (&row);
 
     double recv_buffer_lr[N];
     double recv_buffer_lc[N];
     double recv_buffer_fr[N];
     double recv_buffer_fc[N];
 
-  
-
-    int blocklen_lr = N;
-    int blocklen_fr = N;
-    int blocklen_lc = 1;
-    int blocklen_fc = 1;
-
-    int stride_lr = 0;
-    int stride_fr = 0;
-    int stride_lc = N;
-    int stride_fc = N;
-
-    MPI_Type_vector (count_lr, blocklen_lr, stride_lr, MPI_DOUBLE, &last_row);
-    MPI_Type_commit (&last_row);
-
-    MPI_Type_vector (count_fr, blocklen_fr, stride_fr, MPI_DOUBLE, &first_row);
-    MPI_Type_commit (&first_row);
-
-    MPI_Type_vector (count_fc, blocklen_fc, stride_fc, MPI_DOUBLE, &first_column);
-    MPI_Type_commit (&first_column);
-
-    MPI_Type_vector (count_lc, blocklen_lc, stride_lc, MPI_DOUBLE, &last_column);
-    MPI_Type_commit (&last_column);
+    double stime, etime;
 
     for(int i=0;i<time_step;i++){
 
+      for(int l=0;l<N;l++){
+        lcol[l] = data[l][N-1];
+        lrow[l] = data[N-1][l];
+        fcol[l] = data[l][0];
+        frow[l] = data[0][l];
+      }
+
+      stime = MPI_Wtime();
       // for process 1
       // int MPI_Send (const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) 
       if(1){
 
           // lr
           if((indicator == 1) || (indicator == 3) || (indicator == 5) || (indicator == 6) || (indicator == 8) || (indicator == 9)){
-            MPI_Send(&data[0][column_lr], 1, last_row, myrank+size, i, MPI_COMM_WORLD);
+            MPI_Send(&lrow[0], 1, row, myrank+size, i, MPI_COMM_WORLD);
           }
 
           // fr
           if((indicator == 2) || (indicator == 4) || (indicator == 6) || (indicator == 7) || (indicator == 8) || (indicator == 9)){
-            MPI_Send(&data[0][column_fr], 1, first_row, myrank-size, i, MPI_COMM_WORLD);
+            MPI_Send(&frow[0], 1, row, myrank-size, i, MPI_COMM_WORLD);
           }
 
           // lc
           if((indicator == 1) || (indicator == 4) || (indicator == 5) || (indicator == 6) || (indicator == 7) || (indicator == 9)){
-            MPI_Send(&data[0][column_lc], 1, last_column, myrank+1, i, MPI_COMM_WORLD);
+            MPI_Send(&lcol[0], 1, row, myrank+1, i, MPI_COMM_WORLD);
           }
 
           // fc
           if((indicator == 2) || (indicator == 3) || (indicator == 5) || (indicator == 7) || (indicator == 8) || (indicator == 9)){
-            MPI_Send(&data[0][column_fc], 1, first_column, myrank-1, i, MPI_COMM_WORLD);
+            MPI_Send(&fcol[0], 1, row, myrank-1, i, MPI_COMM_WORLD);
           }
 
       }
@@ -651,13 +687,11 @@ int main(int argc, char *argv[]){
 
         }
 
-        // compute
+        etime = MPI_Wtime();
 
-        double data_temp[N+2][N+2];
-        data_temp[0][0] = 0;
-        data_temp[N+1][N+1] = 0;
-        data_temp[0][N+1] = 0;
-        data_temp[N+1][0] = 0;
+        time3 = time3 + etime - stime;
+
+        // compute
 
         for(int j=1;j<N+1;j++){
           for(int k=1;k<N+1;k++){
@@ -671,7 +705,7 @@ int main(int argc, char *argv[]){
             data_temp[N+1][j] = recv_buffer_lr[j-1];
           }
           else{
-            data_temp[N+1][j] = 0;
+            data_temp[N+1][j] = -DBL_MAX;
           }
 
           // lc
@@ -679,7 +713,7 @@ int main(int argc, char *argv[]){
             data_temp[j][N+1] = recv_buffer_lc[j-1];
           }
           else{
-            data_temp[j][N+1] = 0;
+            data_temp[j][N+1] = -DBL_MAX;
           }
 
           // fc
@@ -687,7 +721,7 @@ int main(int argc, char *argv[]){
             data_temp[j][0] = recv_buffer_fc[j-1];
           }
           else{
-            data_temp[j][0] = 0;
+            data_temp[j][0] = -DBL_MAX;
           }
 
           // fr
@@ -695,7 +729,7 @@ int main(int argc, char *argv[]){
             data_temp[0][j] = recv_buffer_fr[j-1];
           }
           else{
-            data_temp[0][j] = 0;
+            data_temp[0][j] = -DBL_MAX;
           }
 
         }
@@ -705,22 +739,22 @@ int main(int argc, char *argv[]){
             int count = 0;
             double sum = 0;
 
-            if(data_temp[j+1][k] != 0){
+            if(data_temp[j+1][k] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j+1][k];
             }
 
-            if(data_temp[j-1][k] != 0){
+            if(data_temp[j-1][k] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j-1][k];
             }
 
-            if(data_temp[j][k-1] != 0){
+            if(data_temp[j][k-1] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j][k-1];
             }
 
-            if(data_temp[j][k+1] != 0){
+            if(data_temp[j][k+1] != -DBL_MAX){
               count++;
               sum = sum + data_temp[j][k+1];
             }
@@ -731,21 +765,74 @@ int main(int argc, char *argv[]){
         }
 
     }
+
+    // printf("time3 : %lf\n",time3);
+
+    MPI_Type_free(&row);
   }
 
   // ---------------------------------------------------------------------
 
 
-  if(myrank == req_rank){
-    printf("Rank of this process is %d\n", myrank);
-    printf("Totalnumber of processes is %d\n",size);
-    for(int i=0;i<N;i++){
-      for(int j=0;j<N;j++){
-        printf("%f ", data[i][j]);
-      }
-      printf("\n");
+  free(data_temp);
+  free(data);
+
+  MPI_Reduce (&time1, &time1max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+  MPI_Reduce (&time2, &time2max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+  MPI_Reduce (&time3, &time3max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+  // MPI_Status status;
+
+  // if(myrank != 0){
+  //   for(int i=1;i<size_sq;i++){
+  //     MPI_Send(&time1[myrank], 1, MPI_DOUBLE, 0, 10000, MPI_COMM_WORLD);
+  //     MPI_Send(&time2[myrank], 1, MPI_DOUBLE, 0, 10000, MPI_COMM_WORLD);
+  //     MPI_Send(&time3[myrank], 1, MPI_DOUBLE, 0, 10000, MPI_COMM_WORLD);
+  //   }
+  // }
+
+  // if(myrank == 0){
+  //   for(int i=1;i<size_sq;i++){
+  //     MPI_Recv(&time1[i], 1, MPI_DOUBLE, i, 10000, MPI_COMM_WORLD, &status);
+  //     MPI_Recv(&time2[i], 1, MPI_DOUBLE, i, 10000, MPI_COMM_WORLD, &status);
+  //     MPI_Recv(&time3[i], 1, MPI_DOUBLE, i, 10000, MPI_COMM_WORLD, &status);
+  //   }
+  // }
+
+  // if(myrank == 0){
+  //   for(int i=0;i<size_sq;i++){
+  //     time1s = time1s + time1[i];
+  //     time2s = time2s + time2[i];
+  //     time3s = time3s + time3[i];
+
+  //     time1m = maxm(time1m, time1[i]);
+  //     time2m = maxm(time2m, time2[i]);
+  //     time3m = maxm(time3m, time3[i]);
+
+  //   }
+
+  //   printf("Total time 1 : %lf\n", time1s);
+  //   printf("Total time 2 : %lf\n", time2s);
+  //   printf("Total time 3 : %lf\n", time3s);
+
+
+    // printf("Maximum time 1 : %lf\n", time1max);
+    // printf("Maximum time 2 : %lf\n", time2max);
+    // printf("Maximum time 3 : %lf\n", time3max);
+  // }
+
+    // if(myrank == 0){
+    //   printf("Maximum time 1 : %lf\n", time1max);
+    //   printf("Maximum time 2 : %lf\n", time2max);
+    //   printf("Maximum time 3 : %lf\n", time3max);
+    // }
+
+    if(myrank == 0){
+      printf("%lf\n", time1max);
+      printf("%lf\n", time2max);
+      printf("%lf\n", time3max);
     }
-  }
+
 
   // done with MPI
   MPI_Finalize();
