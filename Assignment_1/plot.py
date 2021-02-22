@@ -1,14 +1,16 @@
+import matplotlib
+matplotlib.use('Agg')
 import numpy as np 
 import pandas as pd
 import math
 import seaborn as sns
 import matplotlib.pyplot as plt
-import csv
-
+# import csv
+# plt.use('Agg')
 # %matplotlib inline
-
-df = pd.read_csv("out.csv")
-print(df['p'])
+# sns.use('Agg')
+df = pd.read_csv('out.csv')
+# print(df['p'])
 
 method = []
 
@@ -17,7 +19,7 @@ for i in range(len(df['p'])):
 
 df['method'] = method
 
-print(df['method'])
+# print(df['method'])
 
 PT = [16, 25, 36, 49, 64]
 NT = [256, 1024, 4096, 16384, 65536, 262144, 1048576]
@@ -38,7 +40,7 @@ for i in range(len(df['p'])):
 	lg.append(math.log(df['dp'][i],2))
 df['lg'] = lg
 
-print(df['iteration'])
+# print(df['iteration'])
 
 # for i in range(len(df['time'])):
 # 	df['time'][i] = round(df['time'][i],2)
@@ -47,7 +49,7 @@ print(df['iteration'])
 for p in PT:
 
 	l1 = df[(df['p']==p)]
-	print(l1)
+	# print(l1)
 
 	sns.set(style="whitegrid")
 	# p = sns.boxplot(x = l1['time'], y = l1['lg'], data = l1,width=0.1, linewidth=1, notch=False, color = "red", hue='method')
@@ -60,7 +62,9 @@ for p in PT:
 	# p.get_figure()
 	plt.yscale('log')
 	# plt.xscale('log')
+	lbl = 'Boxplot for P = ' + str(p)
 	plt.xlabel('Log of number of datapoints per process')
+	plt.title(lbl)
 	plt.ylabel('Time taken')
 	# plt.show()
 	nme = 'plot' + str(p) + '.png'
@@ -73,7 +77,7 @@ for p in PT:
 for p in PT:
 
 	l1 = df[(df['p']==p)]
-	print(l1)
+	# print(l1)
 
 	sns.set(style="whitegrid")
 	# p = sns.boxplot(x = l1['time'], y = l1['lg'], data = l1,width=0.1, linewidth=1, notch=False, color = "red", hue='method')
@@ -86,8 +90,10 @@ for p in PT:
 	# p.get_figure()
 	plt.yscale('log')
 	# plt.xscale('log')
+	lbl = 'Lineplot for P = ' + str(p)
 	plt.xlabel('Log of number of datapoints per process')
 	plt.ylabel('Time taken')
+	plt.title(lbl)
 	# plt.show()
 	nme = 'plot' + 'line' + str(p) + '.png'
 
